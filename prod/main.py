@@ -8,10 +8,9 @@ current_file_path = os.path.abspath(__file__)
 # Get the folder where the current file is located
 current_dir = os.path.dirname(current_file_path)
 
-# Set this folder as the working directory
-os.chdir(current_dir)
-
-model = joblib.load('model.pkl')
+# Construct the absolute path to the model file
+model_path = os.path.join(current_dir, 'model.pkl')
+model = joblib.load(model_path)
 
 def predict(df):
     y = model.predict(df)
@@ -20,3 +19,5 @@ def predict(df):
 
     return(df_y)
     
+if __name__ =='__main__':
+    main()
