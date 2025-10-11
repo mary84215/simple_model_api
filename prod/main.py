@@ -12,6 +12,11 @@ current_dir = os.path.dirname(current_file_path)
 model_path = os.path.join(current_dir, 'model.pkl')
 model = joblib.load(model_path)
 
+
+# not good
+#os.chdir(current_dir)
+#model = joblib.load('model.pkl')
+
 def predict(df):
     y = model.predict(df)
     df_y = pd.DataFrame(y)

@@ -99,8 +99,9 @@ def handle_exception(e):
     return jsonify(error=str(e)), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0',port=5000,debug=True)
-    #app.run()
+    #app.run(host='0.0.0.0',port=5000,debug=False, use_reloader=False, threaded=False) # Run this if using pdb debugger
+    #app.run(host='0.0.0.0',port=5000,debug=True) # usual debug without using pdb
+    app.run(host='0.0.0.0',port=5000,debug=False) # online
     #app.run(host='localhost', port=5000, debug=True)
 
 
