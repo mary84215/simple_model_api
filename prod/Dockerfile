@@ -4,6 +4,7 @@ FROM python:3.13-slim
 
 # Set the working directory to /app
 WORKDIR /app
+# VOLUME ["/app"]
 
 # Install vim
 RUN apt-get update && apt-get install -y vim && rm -rf /var/lib/apt/lists/*
