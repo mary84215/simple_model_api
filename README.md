@@ -1,106 +1,121 @@
-# Simple Machine Learning API
+# Simple Machine Learning API（性格預測服務）
 
-A demonstration of how to build and deploy a simple machine learning model as a RESTful API using Flask, Gunicorn, and Docker. This API predicts personality traits (Introvert/Extrovert) based on behavioral data.
+此專案示範如何以 Flask + Gunicorn 建立簡單的機器學習推論 API，並透過 Docker 封裝成容易部署的服務。API 會根據使用者的行為特徵預測其人格傾向（內向／外向），同時支援 API Key 驗證與伺服器端記錄。
 
-## Features
+## 特色
 
-- **Prediction Endpoint**: Accepts behavioral data and returns a personality prediction.
-- **API Key Authentication**: Secures the endpoints with a simple API key check.
-- **Logging**: Records request, response, and error information to a log file.
-- **Log Download**: Provides an endpoint to download the application's log file.
-- **Containerized**: Fully containerized with Docker for easy deployment and portability.
+- **RESTful 推論端點**：`/predict` 接收 JSON 陣列並回傳模型預測結果。
+- **API Key 驗證**：所有端點都需提供 `X-API-KEY`，避免未授權存取。
+- **完整記錄**：使用 `app.log` 追蹤 request/response、例外狀況與執行時間。
+- **Log 下載**：`/log` 端點可直接下載伺服器端日誌。
+- **Docker 化**：在 `prod/Dockerfile` 內建置，方便與任何環境整合。
 
-## Project Structure
+## 專案結構
 
 ```
 .
-├── data/                 # Contains the raw dataset
-│   └── personality_dataset.csv
-├── dev/                  # Development scripts and artifacts
-│   ├── training.py       # Script to train the model
-│   └── model.pkl         # The trained model (should be copied to prod/)
-└── prod/                 # Production application code
-    ├── app.py            # Flask application
-    ├── main.py           # Core prediction logic
-    ├── model.pkl         # The trained model used by the app
-    ├── requirements.txt  # Python dependencies
-    ├── Dockerfile        # Docker configuration
-    └── test/             # Test data
+├── data/
+│   └── personality_dataset.csv   # 模型訓練資料
+├── dev/
+│   ├── training.py               # 建模腳本，輸出 model.pkl 與測試資料
+│   └── model.pkl                 # 訓練完成的模型（需複製到 prod/）
+└── prod/
+    ├── app.py                    # Flask + Gunicorn API 入口
+    ├── main.py                   # 載入模型並提供 predict 函式
+    ├── model.pkl                 # 服務使用的模型權重
+    ├── requirements.txt          # 執行所需套件
+    ├── Dockerfile                # Docker 建置檔
+    ├── app.log                   # 執行期 log
+    └── test/
+        ├── input/input1.*        # 範例輸入
+        └── output/output1.*      # 預期輸出
 ```
 
-## Prerequisites
+## 先決條件
 
-- Docker installed on your machine.
+- 已安裝 Docker。
+- 若要重新訓練模型，請在本機具備 Python 3.10+ 及 `pip`。
 
-## Setup and Running the Application
+## 建置與部署
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/mary84215/simple_model_api.git
-    cd simple_model_api
-    ```
+1. **取得程式碼**
+   ```bash
+   git clone https://github.com/mary84215/simple_model_api.git
+   cd simple_model_api
+   ```
 
-2.  **Train the Model (Optional):**
-    A pre-trained model `model.pkl` is included in the `dev` directory. To retrain the model, run the training script from the project root. This will create a new `model.pkl` in the `dev/` directory.
-    ```bash
-    python dev/training.py
-    ```
+2. **（選用）重新訓練模型**
+   ```bash
+   python dev/training.py
+   ```
+   - 會讀取 `data/personality_dataset.csv`，訓練 Logistic Regression 並輸出 `dev/model.pkl`。
+   - 也會同步產生 `prod/test/input` 與 `prod/test/output` 的範例檔案。
 
-3.  **Prepare for Production:**
-    Copy the trained model from the `dev` directory to the `prod` directory so it can be included in the Docker image.
-    ```bash
-    # On macOS/Linux
-    cp dev/model.pkl prod/model.pkl
+3. **準備推論模型**
+   ```bash
+   cp dev/model.pkl prod/model.pkl   # macOS / Linux
+   # 或者
+   copy dev\model.pkl prod\model.pkl # Windows
+   ```
 
-    # On Windows
-    copy dev\model.pkl prod\model.pkl
-    ```
+4. **（選用）本機執行以便除錯**
+   ```bash
+   cd prod
+   pip install -r requirements.txt
+   python app.py
+   ```
+   - 預設 Flask 會在 `http://localhost:5001` 執行，可用於快速驗證。
 
-4.  **Build the Docker Image:**
-    Navigate to the `prod` directory and build the Docker image.
-    ```bash
-    cd prod
-    docker build -t personality-api .
-    ```
+5. **使用 Docker 建置與啟動**
+   ```bash
+   cd prod
+   docker build -t personality-api .
+   docker run -d -p 5000:5000 --name personality-container personality-api
+   ```
+   - Gunicorn 服務會綁定 `0.0.0.0:5000`，可透過 `http://localhost:5000` 存取。
 
-5.  **Run the Docker Container:**
-    Run the container, mapping port 5000 on your host to port 5000 in the container.
-    ```bash
-    docker run -d -p 5000:5000 --name personality-container personality-api
-    ```
-    The API will now be running and accessible at `http://localhost:5000`.
+## API 使用方式
 
-## API Usage
+- 每個請求都必須帶上 `X-API-KEY`（預設可用：`abc123`、`secret456`、`mary84215`）。
+- 請求與回應皆會被記錄在 `prod/app.log`，可透過 `/log` 下載。
 
-All endpoints require an `X-API-KEY` header for authentication. Valid keys include `abc123` or `mary84215`.
+### `/predict`
 
-### 1. Predict Personality
+- 方法：`POST`
+- Header：`Content-Type: application/json` 與 `X-API-KEY`
+- Body：JSON 陣列（可一次傳多筆），欄位需與訓練資料一致
 
-- **Endpoint**: `/predict`
-- **Method**: `POST`
-- **Headers**:
-  - `Content-Type: application/json`
-  - `X-API-KEY: your_api_key`
-- **Body**: A JSON array with one or more objects containing the feature data.
-
-**Example `curl` request:**
 ```bash
 curl -X POST http://localhost:5000/predict \
--H "Content-Type: application/json" \
--H "X-API-KEY: abc123" \
--d '[{"Time_spent_Alone":10.0,"Stage_fear":1,"Social_event_attendance":3.0,"Going_outside":3.0,"Drained_after_socializing":1,"Friends_circle_size":5.0,"Post_frequency":3.0}]'
+  -H "Content-Type: application/json" \
+  -H "X-API-KEY: abc123" \
+  -d '[{"Time_spent_Alone":10.0,"Stage_fear":1,"Social_event_attendance":3.0,"Going_outside":3.0,"Drained_after_socializing":1,"Friends_circle_size":5.0,"Post_frequency":3.0}]'
 ```
 
-### 2. Download Logs
+範例輸出：
 
-- **Endpoint**: `/log`
-- **Method**: `GET`
-- **Headers**:
-  - `X-API-KEY: your_api_key`
+```json
+{
+  "prediction": [
+    {"IF_INTROVERTED": 1}
+  ]
+}
+```
 
-**Example `curl` request:**
+### `/log`
 
-This command will download the `app.log` file to your current directory.
+- 方法：`GET`
+- Header：`X-API-KEY`
+- 作用：下載 `app.log`
+
 ```bash
-curl -X GET http://localhost:5000/log -H "X-API-KEY: abc123" -o app.log
+curl -X GET http://localhost:5000/log \
+  -H "X-API-KEY: abc123" \
+  -o app.log
 ```
+
+## 開發與除錯建議
+
+- `prod/app.py` 內已實作 `before_request` 與 `after_request` hook，可快速追蹤請求週期。
+- 若更新 `.gitignore` 不生效，請確認檔案是否已被 Git 追蹤（必要時使用 `git rm --cached <file>`）。
+- 若要擴充欄位或替換模型，只需更新 `dev/training.py` 並重新輸出 `model.pkl`。
